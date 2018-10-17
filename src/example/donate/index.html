@@ -1,0 +1,30 @@
+<head>
+    <title>Donate with bitcoin</title>
+</head>
+<body>
+    <h1>Example donations page</h1>
+
+    <p>For privacy reasons, address reuse is not recommended in bitcoin.  This library allows you to generate a new donation address 
+        every time the page is visited.  If and address is generated but not used, after a timeout it will be put back in the pool of
+        addresses to be used again.
+    </p>
+
+    <h2>Donate</h2>
+    <p>If you like the content on this site, please consider donating using bitcoin</p>
+    <canvas></canvas>
+
+    <pre id="address"></pre>
+
+    <script src="qrcode.min.js"></script>
+    <script>
+        const addressElement = document.querySelector('#address')
+        const qr = document.querySelector('canvas')
+        const address = "{ADDRESS}"
+        addressElement.innerText = `${address}`
+        let uri = `bitcoin:${address}`
+        QRCode.toCanvas(qr, 
+            uri, {width: 256}, function (error) {
+            if (error) console.error(error)
+        })
+</script>
+</body>

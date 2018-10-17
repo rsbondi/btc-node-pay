@@ -1,0 +1,32 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Current",
+            "program": "${file}"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "POS example",
+            "program": "${workspaceFolder}/src/example/pos/index.js",
+            "args": [
+                "127.0.0.1:18444"
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Donation example",
+            "program": "${workspaceFolder}/src/example/donate/index.js",
+            "args": [
+                "127.0.0.1:18444"
+            ]
+        }
+    ]
+}

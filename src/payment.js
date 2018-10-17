@@ -1,0 +1,245 @@
+const {HDPublicKey, Peer, net, packets, Address} = require('bcoin');
+const events = require('events');
+const converter = require('./addresses')
+const EXPIRE_REUSE = 1*60*60*1000
+
+/**
+ * Class for handling address generation and payment tracking
+ */
+class Payment {
+    /**
+     * 
+     * @param {string} xpub the extended public key as hex string
+     * @param {string} node the host bitcoind node host:port
+     * @param {bcoin.Network} network the network to run on
+     * @param {object}  cfg additional options for database path and expiration
+     */
+    constructor(xpub, node, network, cfg) {
+        this._eventEmitter = new events.EventEmitter();
+        this.on = (event, cb) => this._eventEmitter.on(event, cb)
+        this.network = network
+        const DB = require(`${cfg && cfg.db || './db/sqlite'}`)
+        this.db = new DB(xpub)
+
+        this.expiration = cfg && cfg.expiration || 5*60*1000 // make available for reuse after this amount of time
+
+        // some inconsistencies in bcoin and core
+        this.networkName = network.type == 'regtest' ? 'testnet' : network.type
+        if(network.type == 'regtest') this.network.addressPrefix.bech32 = 'bcrt'
+        
+        this.watchlist = {} // store addresses here with additional information
+        this.expired = {}   // store here for reuse
+        this.gaps = []      // on startup, this is filled for use of addresses that were generated but never used
+        this.waitingConfirmation = {} // payment received, update block height in db when block received and value here
+        this.account = HDPublicKey.fromBase58(xpub, this.networkName).derive(0) // always receive, no change
+        this.index = -1     // this increments to next derivation if no expired or gaps
+        this.connected = false // status flag set on error from connection
+        this.node = node
+        this.nextN =[]
+        if(node) this._setupPeer(node)
+
+        this.db.on('db_ready', () => {
+            this.db.getIndex().then(i => {
+                this.index = i // set index for tracking
+                this.db.getGaps().then(m => {
+                    this.gaps = m.filter(id => id.idx < this.index).map(i => i.idx) // reuse gaps in db for derivations
+                    this.gaps.forEach(g => {
+                        const addr = this.account.derive(g)
+                        this.nextN.push(converter.segwitAddress(addr, this.network.type))
+                        this.nextN.push(converter.p2shAddress(addr, this.networkName))
+                    }) 
+                    for(let n=this.index; n < this.index + 20; n++) {
+                        const addr = this.account.derive(n)
+                        this.nextN.push(converter.segwitAddress(addr, this.network.type))
+                        this.nextN.push(converter.p2shAddress(addr, this.networkName))
+                    }
+                    console.log('nextN', this.nextN)
+                    this._eventEmitter.emit('payment_ready') // let outside world know
+                }).catch(console.log)
+                this.db.getPayments().then(console.log)   
+            })
+        })
+    }
+
+    /**
+     * connect to bitcoin node and monitor messages
+     * @param {string} host bitcoind node host:port
+     */
+    _setupPeer(host) {
+        let peer = Peer.fromOptions({
+            network: this.network.type,
+            agent: '/tx-listener:0.0.1/',
+            hasWitness: () => {
+              return false;
+            }
+          });
+          
+          const addr = net.NetAddress.fromHostname(host, this.network.type);          
+          console.log(`Connecting to ${addr.hostname}`);          
+          peer.connect(addr);
+          peer.tryOpen();
+          
+          peer.on('error', e => {
+              this.connected = false
+              console.error(e)
+              peer = null
+              setTimeout(() => this._setupPeer(host), 5000)
+          })
+          
+          peer.on('packet', (msg) => {
+          
+            if(msg.cmd === 'version') {
+                console.log('version command, block height', msg.height)
+                this.height = msg.height
+                this.db.getBlock().then(b => {
+                    if(b[0].hash) peer.sendGetBlocks([b[0].hash])
+                }) 
+        }
+          
+            if(msg.cmd === 'tx') {
+                const mine = msg.tx.outputs.filter(o => ~Object.keys(this.watchlist).indexOf(this._outputAddress(o)))
+                if(mine.length) { this._handleMine(mine[0], msg.tx) }
+            }
+          
+            if (msg.cmd === 'block') {
+              this._handleBlock(msg.block.toBlock())
+            }
+          
+            if (msg.cmd === 'inv') { 
+                peer.getData(msg.items) 
+            }
+          });
+          
+          peer.on('open', () => { 
+              this.connected = true; 
+              console.log('peer connection established, listening for transactions') 
+            })
+          
+    }
+
+    /**
+     * handle block message and update height in database
+     * @param {bcoin.Block} block the new block received
+     */
+    _handleBlock(block) {
+        console.log('handle block', block)
+        this.height++
+        this.db.trackBlock(block.hash().toString('hex'))
+        block.txs.forEach(tx => {
+            const txid = Buffer.from(tx.hash()).reverse().toString('hex')
+            const blockhash = Buffer.from(block.hash()).reverse().toString('hex')
+            if (this.waitingConfirmation[txid]) {
+                this.db.setBlock(txid, this.height, blockhash)
+            } else {
+                const mine = tx.outputs.filter(o => ~this.nextN.indexOf(this._outputAddress(o)))
+                // TODO: handleMine uses watchlist, not nextN so need to save and confirm
+                // if(mine.length) { this._handleMine(mine[0], tx) }
+            }
+
+        })
+    }
+
+    /**
+     * handle transaction message for monitored address
+     * @param {bcoin.Output} mine 
+     * @param {bcoin.Transaction} tx 
+     */
+    _handleMine(mine, tx) {
+        const address = this._outputAddress(mine)
+        const payment = {
+            address: address,
+            amount: mine.value,
+            tx: tx
+        }
+        let item = this.watchlist[address]
+        payment.index = item.index
+        if(payment.amount < (item.amount - item.received)) {
+            payment.error = "insufficient amount received"
+            item.received += payment.amount
+        }
+        this._eventEmitter.emit('payment_received', payment)
+        this.db.savePayment(payment)
+        const txid = Buffer.from(tx.hash()).reverse().toString('hex')
+        this.waitingConfirmation[txid] = Object.assign(this.watchlist[address], {address: address})
+        if(!payment.error) {
+            clearTimeout(this.watchlist[address].timer)
+            delete this.watchlist[address]
+        }
+    }
+
+    /**
+     * gets the index of the next dervation item checking expired and gaps or incrementing
+     * @returns {number} the available index for derivation
+     */
+    _getNextIndex() { 
+        const now = (new Date()).getTime()
+        const matured = Object.keys(this.expired).filter(a => now - this.expired[a].expires > EXPIRE_REUSE)
+        if(matured.length) {
+            const index = this.expired[matured[0]].index
+            delete this.expired[matured[0]]
+            matured.shift()
+            return index
+        }
+        if(this.gaps.length) 
+            return this.gaps.shift()
+        return ++this.index 
+    }
+
+    /**
+     * get status for address,
+     * @param {string} address 
+     * @returns {object|null} time remaining or null
+     */
+    getStatus(address) {
+        const item = this.watchlist[address]
+        if(this.node && !this.connected) return {error: "node is currently not connected"}
+        if(item) return {paid: false, remaining: item.expires - (new Date()).getTime()}
+        else return null
+    }
+
+    /**
+     * get address and set up monitoring
+     * @param {number} amt how much is considered paid for pos/invoice, can be zero for donations, any amount valid
+     * @param {string} type the address type, bech32 or p2sh
+     * @returns {string} monitored address
+     */
+    getNewAddress(amt, type) {
+        const index = this._getNextIndex()
+        const receiveAddress = this.account.derive(index)
+
+        let address 
+        if(type == 'bech32') address = converter.segwitAddress(receiveAddress, this.network.type)
+        else if(type='p2sh') address = converter.p2shAddress(receiveAddress, this.networkName)
+
+        this.watchlist[address] = {
+            amount: amt, 
+            received: 0,
+            index: index,
+            expires: (new Date()).getTime() + this.expiration
+        }
+        this.watchlist[address].timer = setTimeout(() => {
+            if(this.watchlist[address]) {
+                this.expired[address] = this.watchlist[address]
+                delete this.watchlist[address]
+            }
+        }, this.expiration)
+        return address
+    }
+    
+    /**
+     * gets address for output
+     * @param {bcoin.Output} o the output to decode
+     * @returns {string} the address for the output
+     */
+    _outputAddress(o) {
+        const address = Address.fromScript(o.script) 
+        if(!address) return ''
+        if(address.type < 2)
+            return address.toBase58(this.networkName)
+        else return address.toBech32(this.network.type)
+    }
+}
+
+module.exports = {Payment: Payment}
+
+// TODO: if payment short, get new address to complete

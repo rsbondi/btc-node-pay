@@ -1,0 +1,22 @@
+{
+  "name": "btc-node-pay",
+  "version": "0.0.1",
+  "description": "lib for receiving bitcoin payments, nodejs, bitcoind node",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha --exit"
+  },
+  "author": "Richard Bondi",
+  "license": "MIT",
+  "dependencies": {
+    "bcoin": "^1.0.2",
+    "bech32": "^1.1.3",
+    "promise": "^8.0.1",
+    "sqlite3": "^4.0.2"
+  },
+  "devDependencies": {
+    "express": "^4.16.3",
+    "mocha": "^5.2.0",
+    "qrcode": "^1.2.2"
+  }
+}
