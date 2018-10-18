@@ -63,7 +63,7 @@ class DB {
         return new Promise((resolve) => {
             const pmt = this.db.prepare("UPDATE block SET hash=? WHERE idx=0")
             pmt.run(hash)
-            pmt.finalize()
+            pmt.finalize(resolve)
         })
     }
 

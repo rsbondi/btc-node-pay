@@ -39,7 +39,7 @@ describe('Test sqlite database class', function () {
                 tx: testdata.firstAddressTx.tx,
                 index: 1
             }
-            db.savePayment(payment)
+            await db.savePayment(payment)
             let bogustx = testdata.firstAddressTx.tx
             bogustx._hash = "xxxx" // hack for no duplicate txid
             payment = {
@@ -53,6 +53,36 @@ describe('Test sqlite database class', function () {
             assert.equal(JSON.stringify(gaps), JSON.stringify([0,2,3]))
             done()
     
+        })
+    })
+
+    it('should save and retrieve payments', function (done) {
+        const db = new DB()
+        db.on('db_ready', async () => {
+            let payment = {
+                address: "address",
+                amount: 0,
+                tx: testdata.firstAddressTx.tx,
+                index: 1
+            }
+            await db.savePayment(payment)
+            const pay = await db.getPayment("address")
+            assert.equal(payment.index, pay[0].idx)
+            assert.equal(payment.amount, pay[0].amount)
+            done()
+        })
+    })
+
+    it('should track latest block hash', function (done) {
+        const db = new DB()
+        db.on('db_ready', async () => {
+            await db.trackBlock("abcd123")
+            let block = await db.getBlock()
+            assert.equal(block[0].hash, "abcd123")
+            await db.trackBlock("wxyz123")
+            block = await db.getBlock()
+            assert.equal(block[0].hash, "wxyz123")
+            done()
         })
     })
 
