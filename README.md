@@ -22,12 +22,15 @@ The default database is sqlite.  You can create a simple database class for use 
 
 ### TODO:
 
-* expand tests for lib
-* create sqlite tests
+* expand tests for lib and sqlite
+* ✔ create sqlite tests
+* fix gaps with consecutive nulls
+* remove bcoin dependency from database
+    * probably best to save raw bytes for transaction rather than whole object and create as needed with `bcoin.TX.fromRaw`
 * catch up on restart
     * get blocks, check for payments received
-    * tracke block height
+    * track block height, currently it is out of sync
 * recovery window, check n addresses ahead to monitor, check on restart
-* document db definition for implementing db class for        different db(postgre, mysql, etc.)
+* document db definition for implementing db class for different db(postgre, mysql, etc.)
 
  

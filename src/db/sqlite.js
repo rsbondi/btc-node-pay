@@ -13,7 +13,7 @@ class DB {
     constructor(key) {
         this._eventEmitter = new events.EventEmitter();
         this.on = (event, cb) => this._eventEmitter.on(event, cb)
-        this.db = new sqlite3.Database(key.slice(-16))
+        this.db = new sqlite3.Database(key ? key.slice(-16) : ':memory:')
         this.db.serialize(() => {
             this.db.get("SELECT * FROM sqlite_master WHERE type='table'", (err, tbl) => {
                 if (!tbl) this._nodb()
@@ -31,16 +31,18 @@ class DB {
      * @property {bcoin.Transaction} payment.tx the complete transaction object
      */
     savePayment(payment) {
-        const {address, amount, index, tx} = payment
-        const txid = Buffer.from(tx.hash()).reverse().toString('hex')
-        const pmt = this.db.prepare("INSERT INTO payments VALUES (?, ?, ?, ?, ?)")
-        pmt.run(address, amount, index, (new Date()).toISOString(), txid)
-        pmt.finalize()
-        
-        const txx = this.db.prepare("INSERT INTO transactions VALUES (?, ?, ?, ?)")
-        txx.run(txid, '', -1, tx.toRaw())
-        txx.finalize()
-        
+        return new Promise((resolve) => {
+            const {address, amount, index, tx} = payment
+            const txid = Buffer.from(tx.hash()).reverse().toString('hex')
+            const pmt = this.db.prepare("INSERT INTO payments VALUES (?, ?, ?, ?, ?)")
+            pmt.run(address, amount, index, (new Date()).toISOString(), txid)
+            pmt.finalize()
+            
+            const txx = this.db.prepare("INSERT INTO transactions VALUES (?, ?, ?, ?)")
+            txx.run(txid, '', -1, tx.toRaw())
+            txx.finalize(resolve)
+            
+        })
     }
 
     /**
@@ -50,15 +52,19 @@ class DB {
      * @param {string} block block hash
      */
     setBlock(txid, height, block) {
-        const pmt = this.db.prepare(`UPDATE transactions SET block=?, height=? WHERE txid='${txid}'`)
-        pmt.run(block, height)
-        pmt.finalize()
+        return new Promise((resolve) => {
+            const pmt = this.db.prepare(`UPDATE transactions SET block=?, height=? WHERE txid='${txid}'`)
+            pmt.run(block, height)
+            pmt.finalize(resolve)
+        })
     }
 
     trackBlock(hash) {
-        const pmt = this.db.prepare("UPDATE block SET hash=? WHERE idx=0")
-        pmt.run(hash)
-        pmt.finalize()
+        return new Promise((resolve) => {
+            const pmt = this.db.prepare("UPDATE block SET hash=? WHERE idx=0")
+            pmt.run(hash)
+            pmt.finalize()
+        })
     }
 
     getBlock() {
@@ -67,7 +73,7 @@ class DB {
 
     /**
      * currently used for troubleshooting, not required
-     * @returns {array} list of payments received
+     * @returns {Promise<array>} list of payments received
      */
     getPayments() {
         return new Promise((resolve, reject) => this._query(resolve, reject, "SELECT * FROM payments p JOIN transactions t ON p.txid=t.txid"))    
@@ -76,7 +82,7 @@ class DB {
     /**
      * currently used for troubleshooting, not required
      * @param {string} address 
-     * @returns {array} single record for payment to address or empty if not existing
+     * @returns {Promise<array>} single record for payment to address or empty if not existing
      */
     getPayment(address) {
         return new Promise((resolve, reject) => this._query(resolve, reject, `SELECT * FROM payments WHERE address='${address}'`))
@@ -84,7 +90,7 @@ class DB {
 
     /**
      * gets the next index for derivation, excluding gaps
-     * @returns {number} the index
+     * @returns {Promise<number>} the index
      */
     getIndex() {
         return new Promise((res, rej) => {
@@ -98,7 +104,7 @@ class DB {
 
     /**
      * gets all indexes that had been generated but no payment received for reuse, called on startup
-     * @returns {number[]} array of all indexes that had been generated but have not received payments
+     * @returns {Promise<number[]>} array of all indexes that had been generated but have not received payments
      */
     getGaps() {
         const sql =`SELECT p.idx + 1 AS idx
