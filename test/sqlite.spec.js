@@ -50,8 +50,7 @@ describe('Test sqlite database class', function () {
             }
             await db.savePayment(payment)
             const gaps = await db.getGaps()
-            // FIXME: this is wrong, should be [2,3]
-            assert.equal(JSON.stringify(gaps.map(g => g.idx)), JSON.stringify([2,5]))
+            assert.equal(JSON.stringify(gaps), JSON.stringify([0,2,3]))
             done()
     
         })

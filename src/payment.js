@@ -42,7 +42,7 @@ class Payment {
             this.db.getIndex().then(i => {
                 this.index = i // set index for tracking
                 this.db.getGaps().then(m => {
-                    this.gaps = m.filter(id => id.idx < this.index).map(i => i.idx) // reuse gaps in db for derivations
+                    this.gaps = m
                     this.gaps.forEach(g => {
                         const addr = this.account.derive(g)
                         this.nextN.push(converter.segwitAddress(addr, this.network.type))

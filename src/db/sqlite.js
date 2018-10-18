@@ -107,12 +107,24 @@ class DB {
      * @returns {Promise<number[]>} array of all indexes that had been generated but have not received payments
      */
     getGaps() {
-        const sql =`SELECT p.idx + 1 AS idx
-        FROM payments as p
-          LEFT OUTER JOIN payments as r ON p.idx + 1 = r.idx
-        WHERE r.idx IS NULL;`
+        const sql =`SELECT idx
+        FROM payments ORDER BY idx ASC;`
 
-        return new Promise((resolve, reject) => this._query(resolve, reject, sql))
+        return new Promise((resolve, reject) => {
+            this.db.all(sql, (err, results) => {
+                if(err) reject(err)
+                else {
+                    let gaps = []
+                    if(results.length) for(let g=0;g<results[0].idx; g++) gaps.push(g) // leading gaps
+                    for(let i=0, j=1; j<results.length; i++,j++) {
+                        const thisone = results[i].idx
+                        const nextone = results[j].idx
+                        for(let t=thisone+1; t<nextone; t++) gaps.push(t)
+                    }
+                    resolve(gaps)
+                }
+            })    
+        })
     }
 
     _query(resolve, reject, sql) {

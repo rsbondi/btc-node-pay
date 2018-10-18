@@ -24,7 +24,7 @@ The default database is sqlite.  You can create a simple database class for use 
 
 * expand tests for lib and sqlite
 * ✔ create sqlite tests
-* fix gaps with consecutive nulls
+* ✔ fix gaps with consecutive nulls
 * remove bcoin dependency from database
     * probably best to save raw bytes for transaction rather than whole object and create as needed with `bcoin.TX.fromRaw`
 * catch up on restart
