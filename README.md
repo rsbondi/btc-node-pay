@@ -29,7 +29,7 @@ The default database is sqlite.  You can create a simple database class for use 
     * get blocks, check for payments received
     * track block height, currently it is out of sync
 * recovery window, check n addresses ahead to monitor, check on restart
-* add get transaction to db
+* ✔ add get transaction to db
 * document db definition for implementing db class for different db(postgre, mysql, etc.)
 
  
