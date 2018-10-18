@@ -89,6 +89,15 @@ class DB {
     }
 
     /**
+     * currently used for troubleshooting, not required
+     * @param {string} hash 
+     * @returns {Promise<array>} single record for transaction or empty if not existing
+     */
+    getTransaction(hash) {
+        return new Promise((resolve, reject) => this._query(resolve, reject, `SELECT * FROM transactions WHERE txid='${hash}'`))
+    }
+
+    /**
      * gets the next index for derivation, excluding gaps
      * @returns {Promise<number>} the index
      */

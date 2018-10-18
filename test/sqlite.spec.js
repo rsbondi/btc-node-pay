@@ -86,4 +86,22 @@ describe('Test sqlite database class', function () {
         })
     })
 
+    it('should retrieve transaction', function (done) {
+        const db = new DB()
+        db.on('db_ready', async () => {
+            const bogustx = testdata.firstAddressTx.tx
+            let payment = {
+                address: "address",
+                amount: 0,
+                tx: bogustx,
+                index: 2
+            }
+            await db.savePayment(payment)
+            const txid = Buffer.from(bogustx.hash()).reverse().toString('hex')
+            const tx = await db.getTransaction(txid)
+            assert.equal(txid, tx[0].txid)
+            done()
+        })
+    })
+
 })
