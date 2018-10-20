@@ -38,6 +38,18 @@ describe('Test payment lib', function () {
             })
         })
     })
+    it('should skip used addresses', function(done) {
+        const block = testdata.block_index11
+        paytrack._handleBlock(block).then((b, e) => {
+            let nextAddressees = []
+            for(let i=0; i<12;i++) {
+                nextAddressees.push(paytrack.getNewAddress(0, 'p2sh'))
+            }
+            const notfound = nextAddressees.indexOf("2NF6B23huHrqfSvcHHi1irpgdz22qEN46NT")
+            assert.equal(notfound, -1)
+            done()
+        })
+    })
     
 })
    

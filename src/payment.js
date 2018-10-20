@@ -136,6 +136,7 @@ class Payment {
                         const txout = myTxOuts[0]
                         const payment = this._paymentFromTxOut(txout, tx)
                         payment.index = this.nextN.filter(n => n.address == payment.address)[0].index
+                        this.usedIndexes.push(payment.index)
                         promises.push(this.db.savePayment(payment).then(() => promises.push(this.db.setBlock(txid, this.height, blockhash))))
                     }
                 }
@@ -195,7 +196,7 @@ class Payment {
         }
         if(this.gaps.length) 
             return this.gaps.shift()
-        while(!~this.usedIndexes.indexOf(++this.index))
+        while(~this.usedIndexes.indexOf(++this.index)) {}
         return this.index 
     }
 
