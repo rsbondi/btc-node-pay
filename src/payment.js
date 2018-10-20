@@ -132,11 +132,10 @@ class Payment {
                     const myTxOuts = tx.outputs.filter(o => {
                         return ~this.nextN.map(n => n.address).indexOf(this._outputAddress(o))
                     })
-                    // TODO: handleMine uses watchlist, not nextN so need to save and confirm
                     if(myTxOuts.length) { 
                         const txout = myTxOuts[0]
                         const payment = this._paymentFromTxOut(txout, tx)
-                        const address = payment.address
+                        payment.index = this.nextN.filter(n => n.address == payment.address)[0].index
                         promises.push(this.db.savePayment(payment).then(() => promises.push(this.db.setBlock(txid, this.height, blockhash))))
                     }
                 }
