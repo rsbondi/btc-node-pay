@@ -13,7 +13,7 @@ describe('Test sqlite database class', function () {
         })
     })
 
-    it('should index properly for payments saved', function (done) {
+    it('should update index properly for payments saved', function (done) {
         const db = new DB()
         db.on('db_ready', async () => {
             const payment = {
@@ -49,8 +49,8 @@ describe('Test sqlite database class', function () {
                 index: 4
             }
             await db.savePayment(payment)
-            const gaps = await db.getGaps()
-            assert.equal(JSON.stringify(gaps), JSON.stringify([0,2,3]))
+            const gaps = await db.getIndexState()
+            assert.equal(JSON.stringify(gaps.gaps), JSON.stringify([0,2,3]))
             done()
     
         })

@@ -1,7 +1,8 @@
-const {HDPublicKey, Peer, net, packets, Address} = require('bcoin');
-const events = require('events');
+const {HDPublicKey, Peer, net, Address} = require('bcoin') // TODO: decouple?
+const events = require('events')
 const converter = require('./addresses')
 const EXPIRE_REUSE = 1*60*60*1000
+const Promise = require('promise')
 
 /**
  * Class for handling address generation and payment tracking
@@ -36,22 +37,19 @@ class Payment {
         this.connected = false // status flag set on error from connection
         this.node = node
         this.nextN =[]
+        this.usedIndexes = []
         if(node) this._setupPeer(node)
 
         this.db.on('db_ready', () => {
             this.db.getIndex().then(i => {
                 this.index = i // set index for tracking
-                this.db.getGaps().then(m => {
-                    this.gaps = m
-                    this.gaps.forEach(g => {
-                        const addr = this.account.derive(g)
-                        this.nextN.push(converter.segwitAddress(addr, this.network.type))
-                        this.nextN.push(converter.p2shAddress(addr, this.networkName))
-                    }) 
+                this.db.getIndexState().then(s => {
+                    this.gaps = s.gaps
+                    this.usedIndexes = s.used
                     for(let n=this.index; n < this.index + 20; n++) {
                         const addr = this.account.derive(n)
-                        this.nextN.push(converter.segwitAddress(addr, this.network.type))
-                        this.nextN.push(converter.p2shAddress(addr, this.networkName))
+                        this.nextN.push({index: n, address: converter.segwitAddress(addr, this.network.type)})
+                        this.nextN.push({index: n, address: converter.p2shAddress(addr, this.networkName)})
                     }
                     console.log('nextN', this.nextN)
                     this._eventEmitter.emit('payment_ready') // let outside world know
@@ -131,40 +129,51 @@ class Payment {
             if (this.waitingConfirmation[txid]) {
                 this.db.setBlock(txid, this.height, blockhash)
             } else {
-                const mine = tx.outputs.filter(o => ~this.nextN.indexOf(this._outputAddress(o)))
+                const myTxOuts = tx.outputs.filter(o => ~this.nextN.map(n => n.address).indexOf(this._outputAddress(o)))
                 // TODO: handleMine uses watchlist, not nextN so need to save and confirm
-                // if(mine.length) { this._handleMine(mine[0], tx) }
+                if(myTxOuts.length) { 
+                    const txout = myTxOuts[0]
+                    const payment = this._paymentFromTxOut(txout, tx)
+                    const address =payment.address
+                }
             }
 
         })
     }
 
-    /**
-     * handle transaction message for monitored address
-     * @param {bcoin.Output} mine 
-     * @param {bcoin.Transaction} tx 
-     */
-    _handleMine(mine, tx) {
-        const address = this._outputAddress(mine)
-        const payment = {
+    _paymentFromTxOut(txout, tx) {
+        const address = this._outputAddress(txout)
+        return {
             address: address,
-            amount: mine.value,
+            amount: txout.value,
             tx: tx
         }
-        let item = this.watchlist[address]
-        payment.index = item.index
-        if(payment.amount < (item.amount - item.received)) {
-            payment.error = "insufficient amount received"
-            item.received += payment.amount
-        }
-        this._eventEmitter.emit('payment_received', payment)
-        this.db.savePayment(payment)
-        const txid = Buffer.from(tx.hash()).reverse().toString('hex')
-        this.waitingConfirmation[txid] = Object.assign(this.watchlist[address], {address: address})
-        if(!payment.error) {
-            clearTimeout(this.watchlist[address].timer)
-            delete this.watchlist[address]
-        }
+    }
+
+    /**
+     * handle transaction message for monitored address
+     * @param {bcoin.Output} txout 
+     * @param {bcoin.Transaction} tx 
+     */
+    _handleMine(txout, tx) {
+        return new Promise((resolve, reject) => {
+            const payment = this._paymentFromTxOut(txout, tx)
+            const address =payment.address
+            let item = this.watchlist[address]
+            payment.index = item.index
+            if(payment.amount < (item.amount - item.received)) {
+                payment.error = "insufficient amount received"
+                item.received += payment.amount
+            }
+            this._eventEmitter.emit('payment_received', payment)
+            this.db.savePayment(payment)
+            const txid = Buffer.from(tx.hash()).reverse().toString('hex')
+            this.waitingConfirmation[txid] = Object.assign(this.watchlist[address], {address: address})
+            if(!payment.error) {
+                clearTimeout(this.watchlist[address].timer)
+                delete this.watchlist[address]
+            }
+        })
     }
 
     /**
@@ -182,7 +191,8 @@ class Payment {
         }
         if(this.gaps.length) 
             return this.gaps.shift()
-        return ++this.index 
+        while(!~this.usedIndexes.indexOf(++this.index))
+        return this.index 
     }
 
     /**

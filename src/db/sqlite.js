@@ -1,6 +1,6 @@
-var sqlite3 = require('sqlite3').verbose();
+const sqlite3 = require('sqlite3').verbose();
 const events = require('events');
-var Promise = require('promise');
+const Promise = require('promise');
 
 /**
  * database class for sqlite
@@ -33,7 +33,7 @@ class DB {
     savePayment(payment) {
         return new Promise((resolve) => {
             const {address, amount, index, tx} = payment
-            const txid = Buffer.from(tx.hash()).reverse().toString('hex')
+            const txid = Buffer.from(tx.hash()).reverse().toString('hex') //TODO: decouple bcoin here
             const pmt = this.db.prepare("INSERT INTO payments VALUES (?, ?, ?, ?, ?)")
             pmt.run(address, amount, index, (new Date()).toISOString(), txid)
             pmt.finalize()
@@ -50,6 +50,7 @@ class DB {
      * @param {string} txid the transaction id
      * @param {number} height block height
      * @param {string} block block hash
+     * @returns {Promise}
      */
     setBlock(txid, height, block) {
         return new Promise((resolve) => {
@@ -59,6 +60,11 @@ class DB {
         })
     }
 
+    /**
+     * fetch a transaction by txid
+     * @param {string} hash the txid
+     * @returns {Promise<array>} single transaction object
+     */
     trackBlock(hash) {
         return new Promise((resolve) => {
             const pmt = this.db.prepare("UPDATE block SET hash=? WHERE idx=0")
@@ -67,6 +73,10 @@ class DB {
         })
     }
 
+    /**
+     * fetch single result of the latest known block
+     * @returns {Promise<array>} single block result
+     */
     getBlock() {
         return new Promise((resolve, reject) => this._query(resolve, reject, "SELECT * FROM block"))
     }
@@ -115,7 +125,7 @@ class DB {
      * gets all indexes that had been generated but no payment received for reuse, called on startup
      * @returns {Promise<number[]>} array of all indexes that had been generated but have not received payments
      */
-    getGaps() {
+    getIndexState() {
         const sql =`SELECT idx
         FROM payments ORDER BY idx ASC;`
 
@@ -130,7 +140,7 @@ class DB {
                         const nextone = results[j].idx
                         for(let t=thisone+1; t<nextone; t++) gaps.push(t)
                     }
-                    resolve(gaps)
+                    resolve({gaps:gaps, used:results})
                 }
             })    
         })
