@@ -29,6 +29,15 @@ describe('Test payment lib', function () {
         const txid = Buffer.from(testdata.firstAddressTx.tx.hash()).reverse().toString('hex')
         assert.equal(paytrack.waitingConfirmation[txid].address, '2N1QdotNaP1dEzakk6TsZH6b39eL5u2eGXC')
     })
+    it('should handle block payment to wallet address', function(done) {
+        const block = testdata.block_index11
+        paytrack._handleBlock(block).then((b, e) => {
+            paytrack.db.getPayment("2NF6B23huHrqfSvcHHi1irpgdz22qEN46NT").then(p => {
+                assert.equal(p.length, 1)
+                done()
+            })
+        })
+    })
     
 })
    

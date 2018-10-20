@@ -8,15 +8,20 @@ class DB {
         this.on = (event, cb) => this._eventEmitter.on(event, cb)
         this.payments = []
         this.transactions = []
-        this._eventEmitter.emit('db_ready') 
+        setTimeout(() => {
+            this._eventEmitter.emit('db_ready') 
+        }, 0)
     }
 
     savePayment(payment) {
-        const {address, amount, index, tx} = payment
-        const txid = Buffer.from(tx.hash()).reverse().toString('hex')
-        this.payments.push({address: address, amount: amount, idx: index, time: '', txid: txid})
-        
-        this.transactions.push({txid: txid, block: '', height: -1, tx: tx.toRaw()})
+        return new Promise((resolve) => {
+            
+            const {address, amount, index, tx} = payment
+            const txid = Buffer.from(tx.hash()).reverse().toString('hex')
+            this.payments.push({address: address, amount: amount, idx: index, time: '', txid: txid})
+            this.transactions.push({txid: txid, block: '', height: -1, tx: tx.toRaw()})
+            resolve()
+        })
     }
 
     setBlock(txid, height, block) {
@@ -36,7 +41,10 @@ class DB {
     } 
 
     getPayment(address) {
-        return new Promise((resolve, reject) => resolve(this.payments.slice().filter(p => p.address == address)[0]))
+        return new Promise((resolve, reject) => {
+            const payment = this.payments.slice().filter(p => p.address == address)
+            resolve(payment)
+        })
     }
 
     getIndex() {
@@ -47,20 +55,23 @@ class DB {
         })
     }
 
-    getGaps() {
-        const gaps = this.payments.reduce((o, c, i) => {
-            if(i) {
-                if(i) {
-                    const prev = this.payments[i-1].idx
-                    let gap = c.idx - prev
-                    for(let p = prev+1; p < c.idx; p++) o.push(p)
-                }
+    getIndexState() {
+        return new Promise((resolve, reject) => {
+            let gaps = []
+            let results = this.payments.map(p => p.idx)
+            if(results.length) for(let g=0;g<results[0].idx; g++) gaps.push(g) // leading gaps
+            for(let i=0, j=1; j<results.length; i++,j++) {
+                const thisone = results[i].idx
+                const nextone = results[j].idx
+                for(let t=thisone+1; t<nextone; t++) gaps.push(t)
             }
-            return o
+            resolve({gaps:gaps, used:results})
+        })
+        
+    }
 
-        },[])
+    trackBlock(hash) {
 
-        return new Promise((resolve, reject) => resolve(gaps))
     }
 
 }

@@ -46,12 +46,11 @@ class Payment {
                 this.db.getIndexState().then(s => {
                     this.gaps = s.gaps
                     this.usedIndexes = s.used
-                    for(let n=this.index; n < this.index + 20; n++) {
+                    for(let n=this.index==-1?0:this.index; n < this.index + 20; n++) {
                         const addr = this.account.derive(n)
                         this.nextN.push({index: n, address: converter.segwitAddress(addr, this.network.type)})
                         this.nextN.push({index: n, address: converter.p2shAddress(addr, this.networkName)})
                     }
-                    console.log('nextN', this.nextN)
                     this._eventEmitter.emit('payment_ready') // let outside world know
                 }).catch(console.log)
                 this.db.getPayments().then(console.log)   
@@ -120,24 +119,30 @@ class Payment {
      * @param {bcoin.Block} block the new block received
      */
     _handleBlock(block) {
-        console.log('handle block', block)
-        this.height++
-        this.db.trackBlock(block.hash().toString('hex'))
-        block.txs.forEach(tx => {
-            const txid = Buffer.from(tx.hash()).reverse().toString('hex')
-            const blockhash = Buffer.from(block.hash()).reverse().toString('hex')
-            if (this.waitingConfirmation[txid]) {
-                this.db.setBlock(txid, this.height, blockhash)
-            } else {
-                const myTxOuts = tx.outputs.filter(o => ~this.nextN.map(n => n.address).indexOf(this._outputAddress(o)))
-                // TODO: handleMine uses watchlist, not nextN so need to save and confirm
-                if(myTxOuts.length) { 
-                    const txout = myTxOuts[0]
-                    const payment = this._paymentFromTxOut(txout, tx)
-                    const address =payment.address
+        return new Promise((resolve, reject) => {
+            this.height++
+            this.db.trackBlock(block.hash().toString('hex'))
+            let promises = []
+            block.txs.forEach(tx => {
+                const txid = Buffer.from(tx.hash()).reverse().toString('hex')
+                const blockhash = Buffer.from(block.hash()).reverse().toString('hex')
+                if (this.waitingConfirmation[txid]) {
+                    promises.push(this.db.setBlock(txid, this.height, blockhash))
+                } else {
+                    const myTxOuts = tx.outputs.filter(o => {
+                        return ~this.nextN.map(n => n.address).indexOf(this._outputAddress(o))
+                    })
+                    // TODO: handleMine uses watchlist, not nextN so need to save and confirm
+                    if(myTxOuts.length) { 
+                        const txout = myTxOuts[0]
+                        const payment = this._paymentFromTxOut(txout, tx)
+                        const address = payment.address
+                        promises.push(this.db.savePayment(payment).then(() => promises.push(this.db.setBlock(txid, this.height, blockhash))))
+                    }
                 }
-            }
 
+            })
+            Promise.all(promises).then(resolve).catch(reject)
         })
     }
 
