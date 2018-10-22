@@ -8,7 +8,7 @@ describe('Test sqlite database class', function () {
         const db = new DB()
         db.on('db_ready', async () => {
             const index = await db.getIndex()
-            assert.equal(index, -1)
+            assert.strictEqual(index, -1)
             done()
         })
     })
@@ -25,7 +25,7 @@ describe('Test sqlite database class', function () {
             db.savePayment(payment)
     
             const index = await db.getIndex()
-            assert.equal(index, 7)
+            assert.strictEqual(index, 7)
             done()
         })
     })
@@ -50,7 +50,7 @@ describe('Test sqlite database class', function () {
             }
             await db.savePayment(payment)
             const gaps = await db.getIndexState()
-            assert.equal(JSON.stringify(gaps.gaps), JSON.stringify([0,2,3]))
+            assert.strictEqual(JSON.stringify(gaps.gaps), JSON.stringify([0,2,3]))
             done()
     
         })
@@ -67,8 +67,8 @@ describe('Test sqlite database class', function () {
             }
             await db.savePayment(payment)
             const pay = await db.getPayment("address")
-            assert.equal(payment.index, pay[0].idx)
-            assert.equal(payment.amount, pay[0].amount)
+            assert.strictEqual(payment.index, pay[0].idx)
+            assert.strictEqual(payment.amount, pay[0].amount)
             done()
         })
     })
@@ -78,10 +78,10 @@ describe('Test sqlite database class', function () {
         db.on('db_ready', async () => {
             await db.trackBlock("abcd123")
             let block = await db.getBlock()
-            assert.equal(block[0].hash, "abcd123")
+            assert.strictEqual(block[0].hash, "abcd123")
             await db.trackBlock("wxyz123")
             block = await db.getBlock()
-            assert.equal(block[0].hash, "wxyz123")
+            assert.strictEqual(block[0].hash, "wxyz123")
             done()
         })
     })
@@ -99,7 +99,7 @@ describe('Test sqlite database class', function () {
             await db.savePayment(payment)
             const txid = Buffer.from(bogustx.hash()).reverse().toString('hex')
             const tx = await db.getTransaction(txid)
-            assert.equal(txid, tx[0].txid)
+            assert.strictEqual(txid, tx[0].txid)
             done()
         })
     })

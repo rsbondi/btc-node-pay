@@ -38,19 +38,25 @@ class Payment {
         this.node = node
         this.nextN =[]
         this.usedIndexes = []
-        if(node) this._setupPeer(node)
-
+        this.recoveryWindow = cfg && cfg.recoveryWindow || 20
+        
         this.db.on('db_ready', () => {
             this.db.getIndex().then(i => {
                 this.index = i // set index for tracking
                 this.db.getIndexState().then(s => {
                     this.gaps = s.gaps
                     this.usedIndexes = s.used
-                    for(let n=this.index==-1?0:this.index; n < this.index + 20; n++) {
+                    this.gaps.forEach(g => { // these could come in while offline
+                        const addr = this.account.derive(g)
+                        this.nextN.push({index: g, address: converter.segwitAddress(addr, this.network.type)})
+                        this.nextN.push({index: g, address: converter.p2shAddress(addr, this.networkName)})
+                    }) 
+                    for(let n = this.index == -1 ? 0 : this.index; n < this.index + this.recoveryWindow; n++) {
                         const addr = this.account.derive(n)
                         this.nextN.push({index: n, address: converter.segwitAddress(addr, this.network.type)})
                         this.nextN.push({index: n, address: converter.p2shAddress(addr, this.networkName)})
                     }
+                    if(node) this._setupPeer(node)
                     this._eventEmitter.emit('payment_ready') // let outside world know
                 }).catch(console.log)
                 this.db.getPayments().then(console.log)   
@@ -87,9 +93,14 @@ class Payment {
           
             if(msg.cmd === 'version') {
                 console.log('version command, block height', msg.height)
-                this.height = msg.height
                 this.db.getBlock().then(b => {
-                    if(b[0].hash) peer.sendGetBlocks([b[0].hash])
+                    if(b[0].height) {
+                        this.height = b[0].height
+                    } else {
+                        this.height = msg.height
+                        this.db.trackBlock("", this.height)
+                    }
+                    if(msg.height > this.height) peer.sendGetBlocks([b[0].hash])
                 }) 
         }
           
@@ -121,7 +132,7 @@ class Payment {
     _handleBlock(block) {
         return new Promise((resolve, reject) => {
             this.height++
-            this.db.trackBlock(block.hash().toString('hex'))
+            this.db.trackBlock(block.hash().toString('hex'), this.height)
             let promises = []
             block.txs.forEach(tx => {
                 const txid = Buffer.from(tx.hash()).reverse().toString('hex')
@@ -136,8 +147,10 @@ class Payment {
                         const txout = myTxOuts[0]
                         const payment = this._paymentFromTxOut(txout, tx)
                         payment.index = this.nextN.filter(n => n.address == payment.address)[0].index
-                        this.usedIndexes.push(payment.index)
-                        promises.push(this.db.savePayment(payment).then(() => promises.push(this.db.setBlock(txid, this.height, blockhash))))
+                        if(!~this.usedIndexes.map(i => i.idx).indexOf(payment.index)) {
+                            this.usedIndexes.push(payment.index)
+                            promises.push(this.db.savePayment(payment).then(() => promises.push(this.db.setBlock(txid, this.height, blockhash))))
+                        }
                     }
                 }
 

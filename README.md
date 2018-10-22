@@ -13,7 +13,7 @@ see `example` directory
 
 ### Limitations
 
-* Currently does not check for payments received external to this class
+* At least one block needs to be mined before tracking properly after shutdown
 * Currently does not scan on startup for payments confirmation
 
 ### Defining additional database types
@@ -25,10 +25,10 @@ The default database is sqlite.  You can create a simple database class for use 
 * expand tests for lib and sqlite
 * ✔ create sqlite tests
 * ✔ fix gaps with consecutive nulls
-* catch up on restart
-    * get blocks, check for payments received
-    * track block height, currently it is out of sync
-* recovery window, check n addresses ahead to monitor, check on restart
+* ✔ catch up on restart
+    * ✔ get blocks, check for payments received
+    * ✔ track block height, currently it is out of sync
+* ✔ recovery window, check n addresses ahead to monitor, check on restart
 * ✔ add get transaction to db
 * document db definition for implementing db class for different db(postgre, mysql, etc.)
 

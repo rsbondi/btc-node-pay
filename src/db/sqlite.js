@@ -65,10 +65,10 @@ class DB {
      * @param {string} hash the txid
      * @returns {Promise<array>} single transaction object
      */
-    trackBlock(hash) {
+    trackBlock(hash, height) {
         return new Promise((resolve) => {
-            const pmt = this.db.prepare("UPDATE block SET hash=? WHERE idx=0")
-            pmt.run(hash)
+            const pmt = this.db.prepare("UPDATE block SET hash=?, height=? WHERE idx=0")
+            pmt.run(hash, height)
             pmt.finalize(resolve)
         })
     }
@@ -154,8 +154,8 @@ class DB {
     }
 
     _txCreated() { 
-        this.db.run("CREATE TABLE block (idx INT , hash TEXT);", (err, result) => {
-            this.db.run("INSERT INTO block VALUES(0, '');", (e,r) => {
+        this.db.run("CREATE TABLE block (idx INT , hash TEXT, height INT);", (err, result) => {
+            this.db.run("INSERT INTO block VALUES(0, '', 0);", (e,r) => {
                 this._eventEmitter.emit('db_ready') 
             })
         })
