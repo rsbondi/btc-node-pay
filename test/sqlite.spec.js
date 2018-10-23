@@ -104,4 +104,27 @@ describe('Test sqlite database class', function () {
         })
     })
 
+    it('should set block confirmation', function (done) {
+        const db = new DB()
+        db.on('db_ready', async () => {
+            let payment = {
+                address: "address",
+                amount: 0,
+                tx: testdata.firstAddressTx.tx,
+                index: 1
+            }
+            await db.savePayment(payment)
+            const txid = Buffer.from(testdata.firstAddressTx.tx.hash()).reverse().toString('hex')
+
+            await db.setBlock(txid, 100, "AAAABBBBCCCCDDDD")
+
+            const p = await db.getPayment("address")
+
+            assert.strictEqual(p[0].block, "AAAABBBBCCCCDDDD")
+            done()
+    
+        })
+    })
+
+
 })

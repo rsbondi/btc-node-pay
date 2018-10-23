@@ -95,7 +95,7 @@ class DB {
      * @returns {Promise<array>} single record for payment to address or empty if not existing
      */
     getPayment(address) {
-        return new Promise((resolve, reject) => this._query(resolve, reject, `SELECT * FROM payments WHERE address='${address}'`))
+        return new Promise((resolve, reject) => this._query(resolve, reject, `SELECT * FROM payments  p JOIN transactions t ON p.txid=t.txid WHERE address='${address}'`))
     }
 
     /**
