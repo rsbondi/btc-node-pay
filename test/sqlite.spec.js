@@ -30,7 +30,7 @@ describe('Test sqlite database class', function () {
         })
     })
 
-    it('should retrieve gaps', function (done) {
+    it('should retrieve gaps and used indexes', function (done) {
         const db = new DB()
         db.on('db_ready', async () => {
             let payment = {
@@ -49,8 +49,9 @@ describe('Test sqlite database class', function () {
                 index: 4
             }
             await db.savePayment(payment)
-            const gaps = await db.getIndexState()
-            assert.strictEqual(JSON.stringify(gaps.gaps), JSON.stringify([0,2,3]))
+            const state = await db.getIndexState()
+            assert.strictEqual(JSON.stringify(state.gaps), JSON.stringify([0,2,3]))
+            assert.strictEqual(JSON.stringify(state.used), JSON.stringify([1,4]))
             done()
     
         })

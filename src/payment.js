@@ -147,7 +147,7 @@ class Payment {
                         const txout = myTxOuts[0]
                         const payment = this._paymentFromTxOut(txout, tx)
                         payment.index = this.nextN.filter(n => n.address == payment.address)[0].index
-                        if(!~this.usedIndexes.map(i => i.idx).indexOf(payment.index)) {
+                        if(!~this.usedIndexes.indexOf(payment.index)) {
                             this.usedIndexes.push(payment.index)
                             promises.push(this.db.savePayment(payment).then(() => promises.push(this.db.setBlock(txid, this.height, blockhash))))
                         }

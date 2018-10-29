@@ -140,7 +140,7 @@ class DB {
                         const nextone = results[j].idx
                         for(let t=thisone+1; t<nextone; t++) gaps.push(t)
                     }
-                    resolve({gaps:gaps, used:results})
+                    resolve({gaps:gaps, used:results.map(u => u.idx)})
                 }
             })    
         })
