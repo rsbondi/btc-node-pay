@@ -1,6 +1,6 @@
 ### Overview
 
-WIP - not a production ready library
+WIP - this should be usable, but not tested, testers welcome
 
 This is a simple class to receive bitcoin payments using xpub.  Addresses are tracked
 and expired addresses are re-used.  Defaults to sqlite but can be used with any db by providing
@@ -18,7 +18,19 @@ nodejs and a fully synced bitcoin core node
 
 ### Usage
 
-see `example` directory
+```javascript
+const Payment = require('btc-node-pay')
+const network = 'testnet'
+const xpub = "xpub..."
+const paytrack = new Payment(xpub, host, network)
+
+paytrack.on('payment_received', p => {
+  // do something meaningful
+})
+```
+
+
+see `example` directory in repository for more usage info
 
 ### Limitations
 

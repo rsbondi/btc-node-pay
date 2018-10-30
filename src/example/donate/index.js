@@ -1,6 +1,5 @@
-const bcoin = require('bcoin');
-const {Payment} = require('../../payment')
-const network = bcoin.Network.get('regtest');
+const Payment = require('../../payment') // use require('btc-node-pay') here when installed
+const network = 'regtest';
 const host = '127.0.0.1:18444'
 const express = require('express')
 const bodyParser = require('body-parser');

@@ -1,10 +1,14 @@
 {
   "name": "btc-node-pay",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "lib for receiving bitcoin payments, nodejs, bitcoind node",
-  "main": "index.js",
+  "main": "./src/payment.js",
   "scripts": {
     "test": "mocha --exit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rsbondi/btc-node-pay.git"
   },
   "author": "Richard Bondi",
   "license": "MIT",

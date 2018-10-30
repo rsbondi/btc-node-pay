@@ -3,6 +3,7 @@ const events = require('events')
 const converter = require('./addresses')
 const EXPIRE_REUSE = 1*60*60*1000
 const Promise = require('promise')
+const bcoin = require('bcoin')
 
 /**
  * Class for handling address generation and payment tracking
@@ -12,21 +13,21 @@ class Payment {
      * 
      * @param {string} xpub the extended public key as hex string
      * @param {string} node the host bitcoind node host:port
-     * @param {bcoin.Network} network the network to run on
+     * @param {string} network the network to run on
      * @param {object}  cfg additional options for database path and expiration
      */
     constructor(xpub, node, network, cfg) {
         this._eventEmitter = new events.EventEmitter();
         this.on = (event, cb) => this._eventEmitter.on(event, cb)
-        this.network = network
+        this.network = bcoin.Network.get(network)
         const DB = require(`${cfg && cfg.db || './db/sqlite'}`)
         this.db = new DB(xpub)
 
         this.expiration = cfg && cfg.expiration || 5*60*1000 // make available for reuse after this amount of time
 
         // some inconsistencies in bcoin and core
-        this.networkName = network.type == 'regtest' ? 'testnet' : network.type
-        if(network.type == 'regtest') this.network.addressPrefix.bech32 = 'bcrt'
+        this.networkName = this.network.type == 'regtest' ? 'testnet' : this.network.type
+        if(this.network.type == 'regtest') this.network.addressPrefix.bech32 = 'bcrt'
         
         this.watchlist = {} // store addresses here with additional information
         this.expired = {}   // store here for reuse
@@ -266,8 +267,9 @@ class Payment {
             return address.toBase58(this.networkName)
         else return address.toBech32(this.network.type)
     }
+
 }
 
-module.exports = {Payment: Payment}
+module.exports = Payment
 
 // TODO: if payment short, get new address to complete

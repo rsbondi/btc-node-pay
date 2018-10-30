@@ -1,9 +1,8 @@
-const { Payment } = require('../src/payment')
-const bcoin = require('bcoin');
+const Payment = require('../src/payment')
 const testdata = require('./testdata/data')
 const assert = require('assert');
 
-const network = bcoin.Network.get('regtest');
+const network = 'regtest';
 const host = null // do not connect to node
 const xpub = "tpubDCPDDmriunw2e8s7aRg1Vfb8CXD6L2ntwnFqeaaw9fYWuksBSREVgzowxVzkfv7RbDk4FcjBh1vpDPEacEq8dRoPxeK4eZH3H6gvkB22fYY"
 
