@@ -6,6 +6,10 @@ const express = require('express')
 const bodyParser = require('body-parser');
 const path = require('path')
 const fs = require('fs')
+const https = require('https')
+const privateKey  = fs.readFileSync(`${__dirname}/../key.pem`, 'utf8')
+const certificate = fs.readFileSync(`${__dirname}/../cert.pem`, 'utf8')
+const credentials = {key: privateKey, cert: certificate}
 
 const xpub = "tpubDCPDDmriunw2e8s7aRg1Vfb8CXD6L2ntwnFqeaaw9fYWuksBSREVgzowxVzkfv7RbDk4FcjBh1vpDPEacEq8dRoPxeK4eZH3H6gvkB22fYY"
 const paytrack = new Payment(xpub, host, network, {expiration: 2*60*60*1000})
@@ -48,4 +52,5 @@ web.get('/qrcode.min.js', function (req, res) {
   res.sendFile(file)
 })
 
-web.listen(3000, () => console.log('Web server listening on port 3000!'))
+const httpsServer = https.createServer(credentials, web)
+httpsServer.listen(8443, () => console.log('Web server listening on port 8443!'))
