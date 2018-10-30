@@ -22,11 +22,16 @@ nodejs and a fully synced bitcoin core node
 const Payment = require('btc-node-pay')
 const network = 'testnet'
 const xpub = "xpub..."
+const host = '127.0.0.1:18333'
 const paytrack = new Payment(xpub, host, network)
 
 paytrack.on('payment_received', p => {
   // do something meaningful
 })
+
+// expect a pament of 2000 satoshis, use zero for donation of any value
+const payme = paytrack.getNewAddress(2000, 'p2sh')
+// generate qr code or something
 ```
 
 
