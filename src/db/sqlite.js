@@ -33,7 +33,7 @@ class DB {
     savePayment(payment) {
         return new Promise((resolve) => {
             const {address, amount, index, tx} = payment
-            const txid = Buffer.from(tx.hash()).reverse().toString('hex') //TODO: decouple bcoin here
+            const txid = Buffer.from(tx.hash()).reverse().toString('hex')
             const pmt = this.db.prepare("INSERT INTO payments VALUES (?, ?, ?, ?, ?)")
             pmt.run(address, amount, index, (new Date()).toISOString(), txid)
             pmt.finalize()

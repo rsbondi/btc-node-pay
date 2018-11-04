@@ -37,6 +37,10 @@ const payme = paytrack.getNewAddress(2000, 'p2sh')
 
 see `example` directory in repository for more usage info
 
+also, this is based on bcoin, and should work with other forks supported by bcoin but has not been tested
+
+to use for example with litecoin, `const paytrack = new Payment(xpub, host, network, {bcoin: 'lcoin'})`
+
 ### Limitations
 
 * At least one block needs to be mined before shutdown to track properly on startup

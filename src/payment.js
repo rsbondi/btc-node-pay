@@ -1,9 +1,8 @@
-const {HDPublicKey, Peer, net, Address} = require('bcoin') // TODO: decouple?
 const events = require('events')
 const converter = require('./addresses')
 const EXPIRE_REUSE = 1*60*60*1000
 const Promise = require('promise')
-const bcoin = require('bcoin')
+let bcoin
 
 /**
  * Class for handling address generation and payment tracking
@@ -14,9 +13,10 @@ class Payment {
      * @param {string} xpub the extended public key as hex string
      * @param {string} node the host bitcoind node host:port
      * @param {string} network the network to run on
-     * @param {object}  cfg additional options for database path and expiration
+     * @param {object} cfg additional options for database path and expiration
      */
     constructor(xpub, node, network, cfg) {
+        bcoin =  require(cfg && cfg.bcoin || 'bcoin')
         this._eventEmitter = new events.EventEmitter();
         this.on = (event, cb) => this._eventEmitter.on(event, cb)
         this.network = bcoin.Network.get(network)
@@ -33,7 +33,7 @@ class Payment {
         this.expired = {}   // store here for reuse
         this.gaps = []      // on startup, this is filled for use of addresses that were generated but never used
         this.waitingConfirmation = {} // payment received, update block height in db when block received and value here
-        this.account = HDPublicKey.fromBase58(xpub, this.networkName).derive(0) // always receive, no change
+        this.account = bcoin.HDPublicKey.fromBase58(xpub, this.networkName).derive(0) // always receive, no change
         this.index = -1     // this increments to next derivation if no expired or gaps
         this.connected = false // status flag set on error from connection
         this.node = node
@@ -70,7 +70,7 @@ class Payment {
      * @param {string} host bitcoind node host:port
      */
     _setupPeer(host) {
-        let peer = Peer.fromOptions({
+        let peer = bcoin.Peer.fromOptions({
             network: this.network.type,
             agent: '/tx-listener:0.0.1/',
             hasWitness: () => {
@@ -78,7 +78,7 @@ class Payment {
             }
           });
           
-          const addr = net.NetAddress.fromHostname(host, this.network.type);          
+          const addr = bcoin.net.NetAddress.fromHostname(host, this.network.type);          
           console.log(`Connecting to ${addr.hostname}`);          
           peer.connect(addr);
           peer.tryOpen();
@@ -261,7 +261,7 @@ class Payment {
      * @returns {string} the address for the output
      */
     _outputAddress(o) {
-        const address = Address.fromScript(o.script) 
+        const address = bcoin.Address.fromScript(o.script) 
         if(!address) return ''
         if(address.type < 2)
             return address.toBase58(this.networkName)
